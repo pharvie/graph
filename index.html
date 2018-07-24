@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script type="text/javascript" src="d3.min.js"></script>
+	</head>
+	<body>
+		<div id="graph-container"></div>
+		<div id="selection-box"></div>
+		<script>
+			var svgHeight = screen.height * .89
+			var svgWidth = screen.width 
+			var leavesRadius= svgHeight*.4
+			var clickedSize = 80
+			var rootRadius = 50
+			var maxLeafRadius = 18
+			var minLeafRadius = 6
+			var selectedCircle = null
+			var mixedLinksList = []
+			var workingLinksList = []
+			var brokenLinksList = []
+			var jsonStreams = null
+			var children = {}
+			var svgSelect = d3.select("div#graph-container")
+				.append("svg")
+				.attr("preserveAspectRatio", "xMinYMin meet")
+				.attr("viewBox", "0 0 " + svgWidth + " " + svgHeight)
+				.style("background-color", "white")
+				.classed("svg-content", true);
+				
+			var rootsGroup = svgSelect
+				.append("g")
+			
+			var leavesGroup = svgSelect
+				.append("g")
+				
+			var mixedGroup = leavesGroup
+				.append("g")
+				.attr("id", "mixed")
+			
+			var workingGroup = leavesGroup
+				.append("g")
+				.attr("id", "working")
+			
+			var brokenGroup = leavesGroup
+				.append("g")
+				.attr("id", "broken")
+				
+			xhr = new XMLHttpRequest();
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState === 4) {
+					console.log("finished")
+					jsonStreams = JSON.parse(xhr.responseText)
+					var leaves = createLeaves(jsonStreams)
+					prepareRoots(children)
+				}
+			}
+			xhr.open("GET", "http://127.0.0.1:3000/streams.json");
+			xhr.send();
+			
+
+						
+			var prepareLeaves = function(jsonStreams) {
+				var maxHosts = 1
+				var minHosts = 1
+				for (var i in jsonStreams) {
+					doc = jsonStreams[i]
+					var ip_address = doc.ip_address
+					var cx, cy
+					var workingLinks = false
+					var brokenLinks = false
+					var color
+					var hostsLinkedBy = 0
+					while (true) {
+						doc.cx = Math.floor(Math.random()*svgWidth)
+						doc.cy = Math.floor(Math.random()*svgHeight)
+						if (distance(doc.cx, doc.cy) < leavesRadius - maxLeafRadius) {
+							break
+						} 
+					}
+					for (var j in doc.network_locations) {
+						netloc = doc.network_locations[j].network_location
+						if (doc.network_locations[j].working_link === true) {
+							workingLinks = true
+						} else {
+							brokenLinks = true
+						}
+						linked_by = doc.network_locations[j].linked_by
+						hostsLinkedBy += linked_by.length
+						for (var k in linked_by) {
+							host = linked_by[k]
+							if (children[host] == null) {
+								children[host] = []
+							}
+							if (children[host].indexOf(ip_address) === -1) {							
+								children[host].push(ip_address)
+							}
+						}
+					}
+					if (hostsLinkedBy > maxHosts) {
+						maxHosts = hostsLinkedBy
+					} else if (hostsLinkedBy < minHosts) {
+						minHosts = hostsLinkedBy
+					}
+					if (workingLinks === true && brokenLinks === true) {
+						doc.color = "#ffff00"
+						doc.status = "mixed"
+					} else if (workingLinks === true) {
+						doc.color = "#336600"
+						doc.status = "working"
+					} else {
+						doc.color = "#cc0000"
+						doc.status = "broken"
+					}
+				}
+				var linearScale = d3.scaleLinear()
+					.domain([minHosts, maxHosts])
+					.range([minLeafRadius, maxLeafRadius])
+				
+				for (var i in jsonStreams) {
+					doc = jsonStreams[i]
+					var unscaledImportance = 0
+					for (var j in doc.network_locations) {
+						entry_at_netloc = doc.network_locations[j]
+						unscaledImportance += entry_at_netloc.linked_by.length
+					}
+					doc.radius = linearScale(unscaledImportance)
+					if (doc.status === "mixed") {
+						mixedLinksList.push(doc)
+					} else if (doc.status === "working") {
+						workingLinksList.push(doc)
+					} else {
+						brokenLinksList.push(doc)
+					}
+				}
+			}
+			
+			
+			var createLeaves = function(jsonStreams) {
+				prepareLeaves(jsonStreams)
+				var mixedLeaves = mixedGroup.selectAll("circle")
+					.data(mixedLinksList)
+					.enter()
+					.append("circle")
+				var workingLeaves = workingGroup.selectAll("circle")
+					.data(workingLinksList)
+					.enter()
+					.append("circle")
+				var brokenLeaves = brokenGroup.selectAll("circle")
+					.data(brokenLinksList)
+					.enter()
+					.append("circle")
+				decorateLeaves(mixedLeaves)
+				decorateLeaves(workingLeaves)
+				decorateLeaves(brokenLeaves)
+			}
+			
+			var decorateLeaves = function(leaves) {
+				leafAttributes = leaves
+					.attr("id", function(d){return d.ip_address})
+					.attr("cx", function(d){return d.cx;})
+					.attr("cy", function(d){return d.cy;})
+					.attr("r", function(d){return d.radius;})
+					.style("fill", function(d){return d3.rgb(d.color);})
+					.style("opacity", .5)
+					.on("click", handleClick)
+			}
+			
+			var prepareRoots = function(hosts) {
+				var data = []
+				
+				for (host in hosts) {
+					doc = {'host': host, 'children': hosts[host]}
+					while (true) {
+						doc.cx = Math.floor(Math.random()*svgWidth)
+						doc.cy = Math.floor(Math.random()*svgHeight)
+						if (distance(doc.cx, doc.cy) < leavesRadius - maxRadius) {
+							break
+						} 
+					}
+				}
+				
+			}
+			
+			function distance(x, y) {
+				xDiff = Math.abs(x - svgWidth/2)
+				yDiff = Math.abs(y - svgHeight/2)
+				dist = Math.sqrt(Math.pow(xDiff, 2) + Math.pow(yDiff, 2))
+				return dist;
+			}
+			
+			function handleClick() {
+				if (selectedCircle !== this) {
+					if (selectedCircle != null) {
+						handleClickOff(selectedCircle)
+					}
+					handleClickOn(this)
+				} else {
+					handleClickOff(this)
+				}
+			}
+			
+			function handleClickOn(circle) {
+				selectedCircle = circle
+				data = d3.select(circle).datum()
+				d3.select(circle)
+					.transition()
+					.attr("cx", function(d) {return svgWidth/2;})
+					.attr("cy", function(d) {return svgHeight/2;})
+					.attr("r", clickedSize)
+					.style("opacity", 1)
+					.duration(1000)
+			}
+			
+			function handleClickOff(circle) {
+				selectedCircle = null
+				data = d3.select(circle).datum()
+				d3.select(circle)
+					.transition()
+					.attr("cx", function(d) {return d.cx})
+					.attr("cy", function(d) {return d.cy})
+					.attr("r", data.radius)
+					.style("opacity", .5)
+					.duration(1000)
+			}
+			
+			function moveCirclesOffCenter() {
+				
+			}
+			
+			
+		</script>
+	</body>
+</html>
