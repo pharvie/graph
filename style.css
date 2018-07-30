@@ -1,0 +1,66 @@
+* {
+	margin: 0;
+	padding: 0;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: 1fr 1250 400 1fr;
+	grid-template-rows: 1fr 250 750 1fr;
+	grid-template-areas:
+	". graph info ."
+	".  test info ."
+}
+
+.graph {
+	grid-area: graph;
+	padding-top: 40px;
+}
+
+.info {
+	grid-area: info;
+	width: 400px ; /* or whatever width you want. */
+  max-width: 400px; /* or whatever width you want. */
+	display: inline-block;
+	overflow: hidden;
+	background-color: steelblue;
+	font-size: 16px;
+	color: white;
+	font-family: "Verdana";
+	margin: 40px;
+	box-shadow:
+    0 0 0 10px hsl(207, 44%, 49%),
+    0 0 0 15px hsl(209, 20%, 49%);
+}
+
+.buttons {
+	grid-area: test;
+	background-color: steelblue;
+	margin: 40px;
+	box-shadow:
+    0 0 0 10px hsl(207, 44%, 49%),
+    0 0 0 15px hsl(209, 20%, 49%);
+}
+
+body { 
+	-webkit-font-smoothing: antialiased; 
+}
+
+
+
+p {
+	padding-top: 10px;
+}
+
+button {
+    background-color: "grey"
+    border: none;
+    color: black;
+		text-shadow: 3px black;
+    padding: 10px 10px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 12px;
+		margin: 15px;
+}

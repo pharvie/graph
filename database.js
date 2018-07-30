@@ -5,10 +5,8 @@ var server = require('./server');
 var assert = require('assert');
 var fs = require('fs');
  
-var findDocuments = function(db, callback) {
-// Get the documents collection
-	var collection = db.collection('2018-7-24:0');
-	// Find some documents
+var findDocuments = function(db, collectionName, callback) {
+	var collection = db.collection(collectionName);
 	collection.find({}).toArray(function(err, docs) {
 		assert.equal(err, null);
 		console.log("Found the following records");
@@ -16,21 +14,19 @@ var findDocuments = function(db, callback) {
 	});
 }
 
-var writeJSONToFile = function(string) {
-	fs.writeFile('streams.json', string, function(err) {
+var writeJSONToFile = function(string, filename) {
+	fs.writeFile(filename, string, function(err) {
 		assert.equal(err, null);
 
 	});
 }
  
-var queryDatabase = function() {
-	console.log('Querying database')
+var queryDatabase = function(dbName, collectionName) {
 	MongoClient.connect('mongodb://172.25.12.109:27017', { useNewUrlParser: true}, function(err, client) {
 		assert.equal(err, null);
-		var db = client.db("streams")
-		findDocuments(db, function(docs) {
-			writeJSONToFile(JSON.stringify(docs))
-			client.close()
+		var db = client.db(dbName)
+		findDocuments(db, collectionName, function(docs) {
+			writeJSONToFile(JSON.stringify(docs), dbName + '.json')
 		});
 	});
 }
