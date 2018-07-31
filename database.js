@@ -1,9 +1,9 @@
 'use strict';
-
 var MongoClient = require('mongodb').MongoClient, format = require('util').format;
 var server = require('./server');
 var assert = require('assert');
 var fs = require('fs');
+
  
 var findDocuments = function(db, collectionName, callback) {
 	var collection = db.collection(collectionName);
@@ -22,7 +22,7 @@ var writeJSONToFile = function(string, filename) {
 }
  
 var queryDatabase = function(dbName, collectionName) {
-	MongoClient.connect('mongodb://172.25.12.109:27017', { useNewUrlParser: true}, function(err, client) {
+	MongoClient.connect('mongodb://18.207.154.217:27017', { useNewUrlParser: true}, function(err, client) {
 		assert.equal(err, null);
 		var db = client.db(dbName)
 		findDocuments(db, collectionName, function(docs) {

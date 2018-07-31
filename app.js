@@ -1,6 +1,10 @@
 var server = require('./server');
 var database = require('./database')
+var dateObj = new Date();
 
-//database.queryDatabase('streams', "2018-7-26:0")
-//database.queryDatabase('hosts', 'hosts')
+dateObj.setDate(dateObj.getDate())
+var yesterday = dateObj.getFullYear() + "-" + (dateObj.getMonth() + 1) + "-" + dateObj.getDate()
+
+database.queryDatabase('streams', yesterday)
+database.queryDatabase('hosts', 'hosts')
 server.startServer()
