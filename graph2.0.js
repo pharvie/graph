@@ -1,6 +1,6 @@
 
 var svgHeight = 600;
-var svgWidth = 1000;
+var svgWidth = 1250;
 var infoHeight = 600;
 var infoWidth = 400;
 var leavesMinorAxis= svgHeight*.375;
@@ -21,10 +21,11 @@ var streams, hosts, edges;
 var completeStreams = [];
 var selectedRoots = [];
 var leafEdges = {};
-var currentLeaves = [];
 var brokenHidden = false;
 var mixedHidden = false;
-var displayIndex 
+var selectedDropdown = null;
+var streamsDisplayed = 0;
+var currentSelectedIndex = null
 
 var graphSVG = d3.select('div#graph-container')
 	.append('svg')
@@ -57,8 +58,6 @@ var createGroups = function() {
 		.attr('id', 'roots')
 }	
 
-
-
 streamsXHR = new XMLHttpRequest();
 streamsXHR.onreadystatechange = function() {
 	if (streamsXHR.readyState === 4) {
@@ -70,8 +69,8 @@ streamsXHR.onreadystatechange = function() {
 				hosts = JSON.parse(hostsXHR.responseText);
 				prepareLeaves()
 				prepareRoots()
-				createGraph()
 				sortLeaves()
+				createGraph()
 				createDropdownSelection()
 			}
 		}
@@ -84,38 +83,72 @@ streamsXHR.send();
 
 var sortLeaves = function() {
 	var sortedLeaves = []
-	while (sortedLeaves.length != streams.length) {
-		var maxImportance = Number.NEGATIVE_INFINITY
-		var maxDoc
-		for (var i=0, iLen = streams.length; i < iLen; i++) {
-			doc = streams[i]
-			if (doc.importance > maxImportance) {
-				maxDoc = doc
-				maxImportance = doc.importance
-			}
+	for (var i=0, iLen = completeStreams.length; i < iLen; i++) {
+		doc = completeStreams[i]
+		if (doc.stream_status === "Working" || (doc.stream_status === "Broken" && brokenHidden === false) || (doc.stream_status) === "Mixed" && mixedHidden === false && leafEdges[doc.id].length > 0) {
+			doc.importance = 0
+			doc.importance += leafEdges[doc.id].length*4
+			doc.importance += doc.network_locations.length
+			sortedLeaves.push(doc)
 		}
-		streams.splice(streams.indexOf(maxDoc), 1)
-		sortedLeaves.push(maxDoc)
-	} 
-	completeStreams = streams = sortedLeaves
-	displayIndex = completeStreams.length
+	}
+	streams = quickSort(sortedLeaves)
 }
 
+var quickSort = function(list) {
+	if (list.length <= 1) {
+		return list
+	} 
+	var rand = Math.floor(Math.random() * list.length)
+	pivot = list[rand].importance
+	var L = []
+	var E = []
+	var G = []
+	for (var i=0; i < list.length; i++) {
+		if (list[i].importance < pivot) {
+			L.push(list[i])
+		} else if (list[i].importance > pivot) {
+			G.push(list[i])
+		} else {
+			E.push(list[i])
+		}
+	}
+	return quickSort(G).concat(E).concat(quickSort(L)) 
+}
 
 var createGraph = function() {
 	createGroups()
 	createCircles(rootsGroup, hosts)
 	createCircles(leavesGroup, streams)
-	setTimeout(function(){createEdges()}, 0)
-	currentLeaves = streams
+	setTimeout(function(){
+		createEdges()
+		checkSelectedRoots()
+	}, 0)
 }
 
 var createButtons = function() {
 	buttonData = [
-		{"buttonText": "Hide broken streams", "state": "Broken", "display": "none", "onPress": function() {alterStreamsByStatus(this)}, "id": "button-hide-broken", "classed": null},
-		{"buttonText": "Hide mixed streams", "state": "Mixed", "display": "none", "onPress": function() {alterStreamsByStatus(this)}, "id": "button-hide-mixed", "classed": null},
-		{"buttonText": "Clear all roots", "onPress": clearRoots, "id": "button-clear", "classed": null},
-		{"buttonText": "Select all roots", "onPress": selectAllRoots, "id": "button-select-all", "classed": null}]
+		{"buttonText": "Leaves displayed", "onPress": toggleDropdown, "id": "button-dropdown", "class": "dropbtn"},
+		{"buttonText": "Hide broken streams", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-broken", "class": null},
+		{"buttonText": "Hide mixed streams", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-mixed", "class": null},
+		{"buttonText": "Clear all roots", "onPress": clearRoots, "id": "button-clear", "class": null},
+		{"buttonText": "Select all roots", "onPress": selectAllRoots, "id": "button-select-all", "class": null},
+		{"buttonText": "Previous most important", "onPress": function() {
+			if (selectedLeaf === null || currentSelectedIndex === 0) {
+				selectMostImportantLeaf()
+			} else {
+				currentSelectedIndex -= 1
+				selectLeafByIndex(-1)
+		}}, "id": "button-prev-important", "class": null},
+		{"buttonText": "Select most important", "onPress": selectMostImportantLeaf, "id": "button-most-important", "class": null},
+		{"buttonText": "Next most important", "onPress": function() {
+			if (selectedLeaf === null) {
+				selectMostImportantLeaf()
+			} else if (currentSelectedIndex < streams.length-1) {
+				currentSelectedIndex += 1
+				selectLeafByIndex(1)
+		}}, "id": "button-prev-important", "class": null},
+		]
 	d3.select("div#buttons")
 		.selectAll("buttons")
 		.data(buttonData)
@@ -123,27 +156,80 @@ var createButtons = function() {
 		.append("button")
 		.text(function(d){return d.buttonText})
 		.attr("id", function(d){return d.id})
+		.attr("class", function(d){return d.class})
 		.on("click", function(d){d.onPress();});
+	d3.select("div#myDropdown")
+		.raise()
+}
+
+var selectMostImportantLeaf = function() {
+	maxImportance = Number.NEGATIVE_INFINITY
+	maxLeafData = null
+	for (var i=0, len = streams.length; i < len; i++) {
+		var importance = 0
+		doc = streams[i]
+		if (leafEdges[doc.id].length > 0) {
+			importance += leafEdges[doc.id].length * 4
+			importance += doc.network_locations.length
+			if (importance > maxImportance) {
+				maxImportance = importance;
+				maxLeafData = doc
+			}
+		}
+	}
+	maxLeaf = document.getElementById(maxLeafData.id)
+	selectLeaf(maxLeaf)
+}
+
+var selectLeafByIndex = function(dir) {
+	console.log("Selecting leaf by index")
+	while (currentSelectedIndex < streams.length) {
+		console.log("In while loop")
+		leafData = streams[currentSelectedIndex]
+		if (leafEdges[leafData.id].length > 0) {
+			leaf = document.getElementById(leafData.id)
+			selectLeaf(leaf)
+			break;
+		} 
+		currentSelectedIndex += dir
+	}
+
+	
 }
 
 var createDropdownSelection = function() {
 	sizeOfStreams = completeStreams.length
-	dropdownLimits = [25, 50, 100, 200, 300, 400, 500, 750, 1000, 1500]
+	dropdownLimits = [25, 50, 100, 200, 300, 400, 500, 750, 1000, 1500, 2000]
 	dropdownData = []
 	for (var i=0; i < dropdownLimits.length; i++) {
 		limit = dropdownLimits[i]
 		if (sizeOfStreams > limit) {
-			data = {"value": limit, "dropdownText": limit}
+			data = {"value": limit, "dropdownText": limit, "id": limit}
 			dropdownData.push(data)
 		}
 	}
-	dropdownData.push({"value": sizeOfStreams, "dropdownText": "Display all"})
+	dropdownData.push({"value": sizeOfStreams, "dropdownText": "Display all", "id": "Display all"})
 	d3.select("div#myDropdown")
 		.selectAll("p")
 		.data(dropdownData)
 		.enter()
 		.append("p")
+		.attr("id", limit)
 		.text(function(d){return d.dropdownText})
+		.on("click", function(){selectDropdown(this)})
+}
+
+var selectDropdown = function(paragraph) {
+	if (selectedDropdown !== null) {
+		d3.select(selectedDropdown)
+			.style("background-color", "#f1f1f1")
+	} 
+	selectedDropdown = paragraph
+	d3.select(selectedDropdown)
+		.style("background-color", "#888888")
+	selectedData = d3.select(selectedDropdown).datum()
+	streamsDisplayed = selectedData.value
+	alterStreamsDisplayed()
 }
 
 var prepareLeaves = function() {
@@ -216,6 +302,8 @@ var prepareLeaves = function() {
 		doc.s = null
 		doc.sw = null
 	}
+	streamsDisplayed = streams.length
+	completeStreams = streams
 }
 
 var prepareRoots = function() {
@@ -327,46 +415,41 @@ var selectAllRoots = function() {
 	}
 }
 
-var alterStreamsByStatus = function(clickedData) {
-	tempStreams = []
-	if ((clickedData.state === "Broken" && brokenHidden === false) || (clickedData.state === "Mixed" && mixedHidden === false)){
-		for (var i=0; i < streams.length; i++) {
-			doc = streams[i]
-			if (doc.stream_status !== clickedData.state) {
-				tempStreams.push(doc)
-			}
-		}
-		if (clickedData.state === "Broken") {
+var toggleHidingStatus = function(clickedData) {
+	if (clickedData.id === "button-hide-broken") {
+		if (brokenHidden === false) {
 			brokenHidden = true
+			clickedData.buttonText = clickedData.buttonText.replace("Hide", "Show")
 		} else {
-			mixedHidden = true
-		}
-		clickedData.buttonText = clickedData.buttonText.replace("Hide", "Show")
-	} else {
-		for (var i=0; i < completeStreams.length; i++) {
-			doc = completeStreams[i]
-			if (doc.stream_status === "Broken") {
-				if (clickedData.state === "Broken" || brokenHidden === false) {
-					tempStreams.push(doc)
-				}
-			} else if (doc.stream_status === "Mixed") {
-				if (clickedData.state === "Mixed" || mixedHidden === false) {
-					tempStreams.push(doc)
-				}
-			} else {
-				tempStreams.push(doc)
-			}
-		}
-		if (clickedData.state === "Broken") {
 			brokenHidden = false
+			clickedData.buttonText = clickedData.buttonText.replace("Show", "Hide")
+		}
+	} else {
+		if (mixedHidden === false) {
+			mixedHidden = true
+			clickedData.buttonText = clickedData.buttonText.replace("Hide", "Show")
 		} else {
 			mixedHidden = false
+			clickedData.buttonText = clickedData.buttonText.replace("Show", "Hide")
 		}
-		clickedData.buttonText = clickedData.buttonText.replace("Show", "Hide")
 	}
 	clicked = document.getElementById(clickedData.id)
 	d3.select(clicked)
-		.text(function(d){return d.buttonText})
+		.text(function(d) {return d.buttonText;})
+	alterStreamsDisplayed()
+}
+
+
+var alterStreamsDisplayed = function() {
+	sortLeaves()
+	tempStreams = []
+	for (i=0, iLen = streams.length; i < iLen; i++) {
+		if (tempStreams.length === streamsDisplayed) {
+			break;
+		}
+		doc = streams[i]
+		tempStreams.push(doc)
+	}
 	streams = tempStreams
 	createGraph()
 }
@@ -401,6 +484,7 @@ var selectRoot = function(root) {
 		.attr("stroke", function(d){return d.s})
 		.attr("stroke-width",  function(d){return d.sw})
 	toggleRootEdges(root, true)
+	sortLeaves()
 }
 
 var deselectRoot = function(root) {
@@ -412,12 +496,25 @@ var deselectRoot = function(root) {
 		.attr("stroke", function(d){return d.s})
 		.attr("stroke-width",  function(d){return d.sw})
 	toggleRootEdges(root, false)
+	sortLeaves()
+}
+
+var checkSelectedRoots = function() {
+	for (var i=0, iLen = hosts.length; i < iLen; i++) {
+		hostData = hosts[i]
+		if (selectedRoots.indexOf(hostData.id) === -1) {
+			root = document.getElementById(hostData.id)
+			deselectRoot(root)
+		}
+	}
 }
 
 var toggleRootEdges = function(root, show) {
 	if (show === true) {
 		display = "block"
 	} else {
+		s = "gray"
+		sw = ".5px"
 		display = "none"
 	}
 	rootData = d3.select(root).datum()
@@ -431,6 +528,8 @@ var toggleRootEdges = function(root, show) {
 			d3.select(edge)
 				.transition()
 				.style("display", display)
+				.attr("stroke", s)
+				.attr("stroke-width", sw)
 			index = leafEdges[childID].indexOf(edgeID)
 			if (show === true) {
 				if (leafEdges[childID].length === 0) {
@@ -443,7 +542,7 @@ var toggleRootEdges = function(root, show) {
 			} else {
 				if (index !== -1) {
 					leafEdges[childID].splice(index, 1)
-				} if (leafEdges[childID].length === 0) {
+				} if (leafEdges[childID].length === 0 && streams.indexOf(childData) !== -1) {
 					d3.select(child)
 						.transition()
 						.style("display", display)
@@ -468,6 +567,9 @@ var selectLeaf = function(leaf) {
 		.attr("stroke-width", "2px")
 	boldEdges(leaf)
 	alterTextArea(leaf)
+	currentSelectedIndex = streams.indexOf(d3.select(leaf).datum())
+	leafData = d3.select(leaf).datum()
+	console.log(leafData.importance)
 }
 
 var deselectLeaf = function(leaf, transitionTime) {
@@ -486,6 +588,7 @@ var deselectLeaf = function(leaf, transitionTime) {
 			.attr("stroke-width", null)
 			.on("end", function(){transitioningLeaves.splice(transitioningLeaves.indexOf(leaf), 1)})
 	}
+	currentSelectedIndex = 0
 }
 
 var hoverOn = function() {
@@ -544,8 +647,22 @@ var alterTextArea = function(leaf) {
 	d3.select("div#info")
 		.selectAll("p")
 		.remove()
+	edges = leafEdges[leafData.id]
+	tempEdges = []
+	for (var i=0; i < edges.length; i++) {
+		var edge = ""
+		splitEdge = edges[i].split("-")
+		for (var j=0; j < splitEdge.length-1; j++) {
+			if (j < splitEdge.length-1) {
+				edge += splitEdge[j] + "-"
+			}
+		}
+		edge = edge.substring(0, edge.length-1)
+		tempEdges.push(edge)
+	}
+	edges = tempEdges
 	addIP(leaf)
-	addListedInfo(leafData.linked_by, "Linked by:")
+	addListedInfo(edges, "Linked by:")
 	addListedInfo(leafData.network_locations, "Network locations:")
 	addListedInfo(leafData.titles, "Titles:")
 }
@@ -614,46 +731,6 @@ var showIndex = function(list, string, index) {
 			.text("Go back to information" )
 			.on("mouseover", function() {d3.select(this).style("cursor", "pointer");})
 			.on("click", function() {alterTextArea(selectedLeaf)})
-}
-
-var showMoreLinkedBy = function(hosts) {
-	d3.select("div#info")
-		.selectAll("p")
-		.remove()
-	d3.select("div#info")
-		.append("p")
-		.attr("id", "linked-by")
-		.text("Linked by:")
-	linkedByText = document.getElementById("linked-by")
-	for (var i = 0, len = hosts.length; i < len; i++) {
-		d3.select(linkedByText)
-			.append("li")
-			.text(hosts[i])
-	}
-	d3.select(linkedByText)
-		.append("li")
-		.text("Go back")
-}
-
-var showMoreNetlocs = function(netlocs) {
-	d3.select("div#info")
-		.selectAll("p")
-		.remove()
-	d3.select("div#info")
-		.append("p")
-		.attr("id", "netlocs")
-		.text("Host names:")
-	netlocsText = document.getElementById("netlocs")
-	for (var i = 0, len = netlocs.length; i < len; i++) {
-		d3.select(netlocsText)
-			.append("li")
-			.text(netlocs[i].network_location)
-	}
-	d3.select(netlocsText)
-		.append("li")
-		.text("Go back")
-		.on("mouseover", function() {d3.select(this).style("cursor", "pointer");})
-		.on("click", function() {alterTextArea(selectedLeaf)})
 }
 
 var clearTextArea = function() {
