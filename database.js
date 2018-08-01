@@ -2,6 +2,7 @@
 var MongoClient = require('mongodb').MongoClient, format = require('util').format;
 var server = require('./server');
 var assert = require('assert');
+var JSONPrepper = require('./jsonPrep')
 var fs = require('fs');
 
  
@@ -26,11 +27,18 @@ var queryDatabase = function(dbName, collectionName) {
 		assert.equal(err, null);
 		var db = client.db(dbName)
 		findDocuments(db, collectionName, function(docs) {
-			writeJSONToFile(JSON.stringify(docs), dbName + '.json')
+			if (collectionName === "hosts") {
+					docs = JSONPrepper.prepareHosts(docs)
+					writeJSONToFile(JSON.stringify(docs), dbName + '.json')
+			} else {
+					docs = JSONPrepper.prepareStreams(docs)
+					writeJSONToFile(JSON.stringify(docs), dbName + '.json')
+			}
 		});
 	});
 }
 
 module.exports = {
-	queryDatabase: queryDatabase
+	queryDatabase: queryDatabase,
+	writeJSONToFile: writeJSONToFile
 }

@@ -3,13 +3,19 @@
 	padding: 0;
 }
 
+svg {
+	margin-left: auto;
+	margin-right: auto;
+	display: block;
+}
+
 .grid {
 	display: grid;
 	grid-template-columns: 1fr 1250 400 1fr;
 	grid-template-rows: 1fr 250 750 1fr;
 	grid-template-areas:
 	". test info ."
-	". graph info ."
+	". graph info .";
 }
 
 .graph {
@@ -19,8 +25,10 @@
 
 .info {
 	grid-area: info;
-	width: 400px ; /* or whatever width you want. */
-  max-width: 400px; /* or whatever width you want. */
+	width: 400px ;
+  max-width: 400px;
+	height: 700px;
+	max-height: 700px;
 	display: inline-block;
 	overflow: hidden;
 	background-color: steelblue;
@@ -33,12 +41,34 @@
     0 0 0 15px hsl(209, 20%, 49%);
 }
 
+.text-info {
+	grid-area: text-info;
+	position: relative;
+	width: 400px;
+	max-width: 400px;
+	height: 350px;
+	max-height: 350px;
+	background-color: steelblue;
+	font-size: 16px;
+	color: white;
+	font-family: "Verdana";
+}
+
+.chart-container {
+	grid-area: chart-info;
+	width: 400px;
+	max-width: 400px;
+	height: 350px;
+	max-height: 350px;
+	background-color: steelblue;
+}
+
 .buttons {
 	grid-area: test;
 	background-color: steelblue;
 	margin: 40px;
-	width: 1250px ; /* or whatever width you want. */
-  max-width: 1250px; /* or whatever width you want. */
+	width: 1150px ; /* or whatever width you want. */
+  max-width: 1150px; /* or whatever width you want. */
 	box-shadow:
     0 0 0 10px hsl(207, 44%, 49%),
     0 0 0 15px hsl(209, 20%, 49%);
@@ -59,12 +89,12 @@ button {
     border: none;
     color: black;
 		font-family: "Verdana";
-    padding: 7.5px 7.5px;
+    padding: 16.5px 16.5px;
     text-align: center;
     text-decoration: none;
     display: inline-block;
     font-size: 12px;
-		margin: 10px;
+		margin: 15px;
 }
 
 button:hover {
@@ -78,7 +108,7 @@ button:hover {
     border: none;
     color: black;
 		font-family: "Verdana";
-    padding: 10px 10px;
+    padding: 16.5px 16.5px;
     text-align: center;
     text-decoration: none;
     display: inline-block;
@@ -125,3 +155,8 @@ button:hover {
 
 /* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
 .show {display:block;}
+
+.bar {
+	display:inline-block;
+	
+}
