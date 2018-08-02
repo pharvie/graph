@@ -42,7 +42,6 @@ svg {
 }
 
 .text-info {
-	grid-area: text-info;
 	position: relative;
 	width: 400px;
 	max-width: 400px;
@@ -55,12 +54,28 @@ svg {
 }
 
 .chart-container {
-	grid-area: chart-info;
 	width: 400px;
 	max-width: 400px;
-	height: 350px;
-	max-height: 350px;
+	height: 320px;
+	max-height: 320px;
 	background-color: steelblue;
+}
+
+.chart-button-container {
+	position: relative;
+	width: 400px;
+	max-width: 400px;
+	height: 30px;
+	max-height: 30px;
+	background-color: steelblue;
+}
+
+.chart-button {
+	padding: 4px 4px;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 9.5px;
+		margin: 3px;
 }
 
 .buttons {
@@ -89,8 +104,11 @@ button {
     border: none;
     color: black;
 		font-family: "Verdana";
-    padding: 16.5px 16.5px;
     text-align: center;
+}
+
+.graph-button {
+    padding: 16.5px 16.5px;
     text-decoration: none;
     display: inline-block;
     font-size: 12px;
@@ -104,12 +122,8 @@ button:hover {
 
 /* Dropdown Button */
 .dropbtn {
-    background-color: "grey";
-    border: none;
-    color: black;
-		font-family: "Verdana";
-    padding: 16.5px 16.5px;
     text-align: center;
+    padding: 16.5px 16.5px;
     text-decoration: none;
     display: inline-block;
     font-size: 12px;

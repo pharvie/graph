@@ -1,26 +1,29 @@
-
-var graphHeight = 600;
-var graphWidth = 1140;
-var chartHeight = 350;
-var chartWidth = 400;
-var infoHeight = 600;
-var infoWidth = 400;
-var leavesMinorAxis= graphHeight*.35;
-var leavesMajorAxis = graphWidth *.35;
-var rootsMinorAxis = graphHeight *.475;
-var rootsMajorAxis = graphWidth * .475;
-var rootRadius = 20;
-var maxLeafRadius = 15;
-var minLeafRadius = 3;
+//constants
+const graphHeight = 600;
+const graphWidth = 1140;
+const chartHeight = 320;
+const chartWidth = 400;
+const infoHeight = 600;
+const infoWidth = 400;
+const leavesMinorAxis= graphHeight*.35;
+const leavesMajorAxis = graphWidth *.35;
+const rootsMinorAxis = graphHeight *.475;
+const rootsMajorAxis = graphWidth * .475;
+const rootRadius = 20;
+const maxLeafRadius = 15;
+const minLeafRadius = 3;
+const clickedRadius = maxLeafRadius + 50;
+const centerSpace = (clickedRadius + maxLeafRadius * 1.125);
+// general variables
+var chartColors = ["#5d154f", "#f8e622", "#695818", "#ada4f3", "#2af514", "#c009c1", "#050e8f", "#f853c5", "#146b50", "#ce4132",
+						"#af2599", "#2830b1", "#1d96aa", "#c826c8", "#a47508", "#5d40ef", "#3c30c5", "#57bd11", "#18295d", "#ff4959",
+						"#906f8f", "#ffdb30", "#e5c961", "#19cfe6", "#968a08", "#94a95c", "#09a994", "#d7f75a", "#a81acf", "#6a0ce9"]
 var children = {}
 var edgesGroup, leavesGroup, rootsGroup
-// transition variables
 var selectedLeaf = null;
-var clickedRadius = maxLeafRadius + 50;
 var transitioningLeaves = [];
-var centerSpace = (clickedRadius + maxLeafRadius * 1.125);
 var streams, hosts, edges;
-var completeStreams = [];
+var streams = [];
 var selectedRoot = null;
 var leafEdges = {};
 var brokenHidden = false;
@@ -31,6 +34,7 @@ var currentSelectedIndex = null;
 var workingLinks = {};
 var mixedLinks = {};
 var brokenLinks = {};
+var hidingLeaves = {};
 
 var graphSVG = d3.select('div#graph-container')
 	.append('svg')
@@ -74,9 +78,9 @@ streamsXHR.onreadystatechange = function() {
 				hosts = JSON.parse(hostsXHR.responseText);
 				prepareLeaves()
 				prepareRoots()
-				sortLeaves()
+				streams = quickSort(streams)
 				createGraph()
-				createStreamStatusBarChart("total")
+				createStreamStatusBarChart("total", "total")
 				createDropdownSelection()
 			}
 		}
@@ -87,19 +91,6 @@ streamsXHR.onreadystatechange = function() {
 streamsXHR.open('GET', 'http://127.0.0.1:3000/streams.json');
 streamsXHR.send();
 
-var sortLeaves = function() {
-	var sortedLeaves = []
-	for (var i=0, iLen = completeStreams.length; i < iLen; i++) {
-		doc = completeStreams[i]
-		if (doc.stream_status === "Working" || (doc.stream_status === "Broken" && brokenHidden === false) || (doc.stream_status) === "Mixed" && mixedHidden === false && leafEdges[doc.id].length > 0) {
-			doc.importance = 0
-			doc.importance += leafEdges[doc.id].length*4
-			doc.importance += doc.network_locations.length
-			sortedLeaves.push(doc)
-		}
-	}
-	streams = quickSort(sortedLeaves)
-}
 
 var quickSort = function(list) {
 	if (list.length <= 1) {
@@ -131,7 +122,7 @@ var createGraph = function() {
 	}, 0)
 }
 
-var createBarChart = function(data) {
+var createBarChart = function(data, title) {
 	d3.select("div#chart-container")
 		.selectAll("svg")
 			.remove()
@@ -144,7 +135,7 @@ var createBarChart = function(data) {
 	.style('background-color', 'white')
 	
 	d3.select(chartSVG),
-    margin = {top: 20, right: 20, bottom: 30, left: 40},
+    margin = {top: 50, right: 20, bottom: 30, left: 40},
 		width =+ chartSVG.attr("width") - margin.left - margin.right,
     height =+ chartSVG.attr("height") - margin.top - margin.bottom;
 	
@@ -155,7 +146,6 @@ var createBarChart = function(data) {
 			
 	x.domain(data.map(function(d){return d.state}))
 	y.domain([0, d3.max(data, function(d) {return d.size;})])
-	
 	
 	var g = chartSVG.append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
@@ -187,41 +177,91 @@ var createBarChart = function(data) {
 			.attr("fill", function(d) {
 				return d.color
 			});
+	chartSVG
+		.append("text")
+		.text(title)
+		.attr("transform", "translate(200," + margin.top/2 + ")")
+		.style("padding", "10px")
+		.style("font-size", "12px")
+		.attr("text-anchor", "middle")
 }
 
-var createStreamStatusBarChart = function(id) {
-	if (brokenLinks[id] != null && workingLinks[id] != null && mixedLinks[id] != null) {
+var createStartSitesBarChart = function () {
+	hostNamesData = []
+	for (var i=0; i < hosts.length; i++) {
+		data = {"state": i+1, "size": 0, "color": chartColors[i]}
+		hostNamesData.push(data)
+	}
+	if (selectedRoot == null) {
+		title = "Total distribution of start sites"
+		for (var i=0; i < streams.length; i++) {
+			leafData = streams[i]
+			hostNamesLength = leafData.linked_by.length
+			hostNamesData[hostNamesLength-1].size += 1
+		}		
+	} else {
+		id = selectedRoot.id
+			title = "Distribution of start sites from " + id
+	}
+	for (var i=0; i < hostNamesData.length; i++) {
+		entry = hostNamesData[i]
+		if (entry.size === 0) {
+			hostNamesData.splice(i, 1)
+		}
+	}
+	console.log(hostNamesData)
+	createBarChart(hostNamesData, title)
+}
+
+
+var createStreamStatusBarChart = function() {
+	if (selectedRoot === null) {
+		id = "total"
+		title = "Total distribution of streams"
+	} else {
+		id = selectedRoot.id
+		title = "Distribution of streams from " + id
+	}
+	if (brokenLinks[id] !== null || workingLinks[id] !== null || mixedLinks[id] !== null) {
+		if (brokenLinks[id] === null) {
+			brokenLinks[id] = 0
+		} if (workingLinks[id] === null) {
+			workingLinks[id] = 0
+		} if (mixedLinks[id] === null) {
+			mixedLinks[id] = 0
+		}
+		
 		data = [{"state": "Broken", "size": brokenLinks[id], "color": "#ff0000"},
 						{"state": "Working", "size": workingLinks[id], "color": "#336600"},
 						{"state": "Mixed", "size": mixedLinks[id], "color": "#ffff00"}]
-		createBarChart(data)
+		createBarChart(data, title)
 	}
 }
 
 var createButtons = function() {
-	buttonData = [
+	graphButtonData = [
 		{"buttonText": "Leaves displayed", "onPress": toggleDropdown, "id": "button-dropdown", "class": "dropbtn"},
-		{"buttonText": "Hide broken streams", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-broken", "class": null},
-		{"buttonText": "Hide mixed streams", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-mixed", "class": null},
+		{"buttonText": "Hide broken streams", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-broken", "class": "graph-button"},
+		{"buttonText": "Hide mixed streams", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-mixed", "class": "graph-button"},
 		{"buttonText": "Previous most important", "onPress": function() {
 			if (selectedLeaf === null || currentSelectedIndex === 0) {
 				selectMostImportantLeaf()
 			} else {
 				currentSelectedIndex -= 1
 				selectLeafByIndex(-1)
-		}}, "id": "button-prev-important", "class": null},
-		{"buttonText": "Select most important", "onPress": selectMostImportantLeaf, "id": "button-most-important", "class": null},
+		}}, "id": "button-prev-important", "class": "graph-button"},
+		{"buttonText": "Select most important", "onPress": selectMostImportantLeaf, "id": "button-most-important", "class": "graph-button"},
 		{"buttonText": "Next most important", "onPress": function() {
 			if (selectedLeaf === null) {
 				selectMostImportantLeaf()
 			} else if (currentSelectedIndex < streams.length-1) {
 				currentSelectedIndex += 1
 				selectLeafByIndex(1)
-		}}, "id": "button-prev-important", "class": null},
+		}}, "id": "button-prev-important", "class": "graph-button"},
 		]
 	d3.select("div#buttons")
 		.selectAll("buttons")
-		.data(buttonData)
+		.data(graphButtonData)
 		.enter()
 		.append("button")
 		.text(function(d){return d.buttonText})
@@ -230,41 +270,64 @@ var createButtons = function() {
 		.on("click", function(d){d.onPress();});
 	d3.select("div#myDropdown")
 		.raise()
+		
+	chartButtonData = [
+		{"buttonText": "Stream statuses distribution", "onPress": createStreamStatusBarChart, "id": "button-hide-broken", "class": "chart-button"},
+		{"buttonText": "Host names distribution", "onPress": createStartSitesBarChart, "id": "button-hide-mixed", "class": "chart-button"},
+		{"buttonText": "Start sites distribution", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-mixed", "class": "chart-button"},
+	]
+	d3.select("div#chart-buttons")
+		.selectAll("buttons")
+		.data(chartButtonData)
+		.enter()
+		.append("button")
+		.text(function(d){return d.buttonText})
+		.attr("id", function(d){return d.id})
+		.attr("class", function(d){return d.class})
+		.on("click", function(d){d.onPress();});
 }
 
+
 var selectMostImportantLeaf = function() {
-	maxImportance = Number.NEGATIVE_INFINITY
-	maxLeafData = null
-	for (var i=0, len = streams.length; i < len; i++) {
-		var importance = 0
-		doc = streams[i]
-		if (leafEdges[doc.id].length > 0) {
-			importance += leafEdges[doc.id].length * 4
-			importance += doc.network_locations.length
-			if (importance > maxImportance) {
-				maxImportance = importance;
-				maxLeafData = doc
-			}
+	index = 0
+	while(true) {
+		console.log("LOOPING MAX")
+		doc = streams[index]
+		if ((doc.stream_status === "Broken" && brokenHidden === true) || (doc.stream_status === "Mixed" && mixedHidden === true)) {
+			index += 1
+			continue;
 		}
+		leaf = document.getElementById(doc.id)
+		selectLeaf(leaf)
+		break;
 	}
-	maxLeaf = document.getElementById(maxLeafData.id)
-	selectLeaf(maxLeaf)
 }
 
 var selectLeafByIndex = function(dir) {
-	while (currentSelectedIndex < streams.length) {
+	while(true) {
 		leafData = streams[currentSelectedIndex]
-		if (leafEdges[leafData.id].length > 0) {
-			leaf = document.getElementById(leafData.id)
-			selectLeaf(leaf)
+		if ((leafData.stream_status === "Broken" && brokenHidden === true) || (leafData.stream_status === "Mixed" && mixedHidden === true)) {
+			currentSelectedIndex += dir
+			if ((dir === -1 && currentSelectedIndex === 0) || (dir === 1 && currentSelectedIndex === streams.length)) {
+				break;
+			}
+			continue;
+		}
+		leaf = document.getElementById(leafData.id)
+		if (hidingLeaves[leafData.id] === true) {
+			while (hidingLeaves[leafData.id] === true) {
+				currentSelectedIndex -= dir
+				leafData = streams[currentSelectedIndex]
+			}
 			break;
-		} 
-		currentSelectedIndex += dir
+		}
+		selectLeaf(leaf)
+		break;
 	}
 }
 
 var createDropdownSelection = function() {
-	sizeOfStreams = completeStreams.length
+	sizeOfStreams = streams.length
 	dropdownLimits = [25, 50, 100, 200, 300, 400, 500, 750, 1000, 1500, 2000]
 	dropdownData = []
 	for (var i=0; i < dropdownLimits.length; i++) {
@@ -372,6 +435,7 @@ var prepareLeaves = function() {
 		doc.id = doc.ip_address
 		doc.opacity = 1
 		doc.state = "leaf"
+		hidingLeaves[doc.id] = false
 	}
 	
 	var linearScale = d3.scaleLinear()
@@ -385,7 +449,7 @@ var prepareLeaves = function() {
 		doc.sw = null
 	}
 	streamsDisplayed = streams.length
-	completeStreams = streams
+	streams = streams
 }
 
 var prepareRoots = function() {
@@ -482,19 +546,37 @@ var toggleHidingStatus = function(clickedData) {
 
 
 var alterStreamsDisplayed = function() {
-	sortLeaves()
-	tempStreams = []
+	streamsAdded = 0
 	for (i=0, iLen = streams.length; i < iLen; i++) {
-		if (tempStreams.length === streamsDisplayed) {
-			break;
-		}
 		doc = streams[i]
-		tempStreams.push(doc)
+		leaf = document.getElementById(doc.id)
+		if (streamsAdded > streamsDisplayed || (doc.stream_status === "Broken" && brokenHidden === true) || (doc.stream_status === "Mixed" && mixedHidden === true)) {
+			toggleLeaf(leaf, "none")
+		} else {
+			streamsAdded += 1
+			toggleLeaf(leaf, "block")
+		}
 	}
-	streams = tempStreams
-	createGraph()
 }
 
+
+var toggleLeaf = function(leaf, display) {
+	d3.select(leaf)
+		.style("display", display)
+	leafData = d3.select(leaf).datum()
+	edges = leafEdges[leafData.id]
+	for (var i=0; i < edges.length; i++) {
+		edgeID = edges[i]
+		edge = document.getElementById(edgeID)
+		d3.select(edge)
+			.style("display", display)
+	}
+	if (display === 'none') {
+		hidingLeaves[leafData.id] = true
+	} else {
+		hidingLeaves[leafData.id] = false
+	}
+}
 
 var handleNodeClick = function() {
 	nodeData = d3.select(this).datum()
@@ -519,6 +601,7 @@ var selectRoot = function(root) {
 		deselectRoot(selectedRoot, false)
 	}
 	selectedRoot = root
+	console.log(root)
 	d3.select(root)
 		.raise()
 		.transition()
@@ -526,7 +609,7 @@ var selectRoot = function(root) {
 		.attr("stroke", "black")
 		.attr("stroke-width", "2px")
 	rootID = d3.select(root).datum().id
-	createStreamStatusBarChart(rootID)
+	createStreamStatusBarChart()
 }
 
 var deselectRoot = function(root, completeDeselect) {
@@ -559,7 +642,6 @@ var selectLeaf = function(leaf) {
 	alterTextArea(leaf)
 	currentSelectedIndex = streams.indexOf(d3.select(leaf).datum())
 	leafData = d3.select(leaf).datum()
-	console.log(leafData.importance)
 }
 
 var deselectLeaf = function(leaf, transitionTime) {

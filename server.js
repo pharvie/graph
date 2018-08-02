@@ -26,7 +26,7 @@ var handleUrl = function(req, res) {
 		var myReadStream = fs.createReadStream(__dirname + '/d3.min.js', 'utf-8');
 	} else if (req.url === '/graph.js') {
 		res.writeHead(200, {'Content-Type': 'text/javascript'})
-		var myReadStream = fs.createReadStream(__dirname + '/graph2.0.js', 'utf-8');
+		var myReadStream = fs.createReadStream(__dirname + '/graph.js', 'utf-8');
 	} else if (req.url === '/style.css') {
 		res.writeHead(200, {'Content-Type': 'text/css'})
 		var myReadStream = fs.createReadStream(__dirname + '/style.css', 'utf-8');
