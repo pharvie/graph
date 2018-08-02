@@ -6,14 +6,13 @@ var startServer = function(responseContent) {
 		console.log(req.url)
 		handleUrl(req, res)
 	});
-	server.listen(3000, '127.0.0.1')
+	server.listen(3000, '18.207.154.217')
 	console.log('Listening on port 3000')
 }
 
 var handleUrl = function(req, res) {
-	if (req.url === '/') {
+	if (req.url === '/graph') {
 		res.writeHead(200, {'Content-Type': 'text/html'});
-		console.log('Getting index')
 		var myReadStream = fs.createReadStream(__dirname + '/index.html', 'utf-8');
 	} else if (req.url === '/streams.json') {
 		res.writeHead(200, {'Content-Type': 'application/json'});

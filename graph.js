@@ -35,6 +35,7 @@ var workingLinks = {};
 var mixedLinks = {};
 var brokenLinks = {};
 var hidingLeaves = {};
+var chartSelected = "statuses"
 
 var graphSVG = d3.select('div#graph-container')
 	.append('svg')
@@ -201,16 +202,26 @@ var createStartSitesBarChart = function () {
 		}		
 	} else {
 		id = selectedRoot.id
-			title = "Distribution of start sites from " + id
+		title = "Distribution of start sites from " + id
+		selectedRootData = d3.select(selectedRoot).datum()
+		children = selectedRootData.children
+		for (var i=0; i < children.length; i++) {
+			leafID = children[i]
+			leaf = document.getElementById(leafID)
+			leafData = d3.select(leaf).datum()
+			hostNamesLength = leafData.linked_by.length
+			hostNamesData[hostNamesLength-1].size += 1
+		}
 	}
 	for (var i=0; i < hostNamesData.length; i++) {
 		entry = hostNamesData[i]
 		if (entry.size === 0) {
-			hostNamesData.splice(i, 1)
+			hostNamesData.splice(hostNamesData.indexOf(entry), 1)
 		}
 	}
 	console.log(hostNamesData)
 	createBarChart(hostNamesData, title)
+	chartSelected = "sites"
 }
 
 
@@ -236,6 +247,7 @@ var createStreamStatusBarChart = function() {
 						{"state": "Mixed", "size": mixedLinks[id], "color": "#ffff00"}]
 		createBarChart(data, title)
 	}
+	chartSelected = "statuses"
 }
 
 var createButtons = function() {
@@ -609,7 +621,11 @@ var selectRoot = function(root) {
 		.attr("stroke", "black")
 		.attr("stroke-width", "2px")
 	rootID = d3.select(root).datum().id
-	createStreamStatusBarChart()
+	if (chartSelected === "statuses") {
+		createStreamStatusBarChart()
+	} else if (chartSelected === "sites") {
+		createStartSitesBarChart()
+	}
 }
 
 var deselectRoot = function(root, completeDeselect) {
