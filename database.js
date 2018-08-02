@@ -28,11 +28,13 @@ var queryDatabase = function(dbName, collectionName) {
 		var db = client.db(dbName)
 		findDocuments(db, collectionName, function(docs) {
 			if (collectionName === "hosts") {
-					docs = JSONPrepper.prepareHosts(docs)
-					writeJSONToFile(JSON.stringify(docs), dbName + '.json')
+				docs = JSONPrepper.prepareHosts(docs)
+				writeJSONToFile(JSON.stringify(docs), dbName + '.json')
+			} else if (collectionName === "titles") {
+				writeJSONToFile(JSON.stringify(docs), dbName + '.json')
 			} else {
-					docs = JSONPrepper.prepareStreams(docs)
-					writeJSONToFile(JSON.stringify(docs), dbName + '.json')
+				docs = JSONPrepper.prepareStreams(docs)
+				writeJSONToFile(JSON.stringify(docs), dbName + '.json')
 			}
 		});
 	});

@@ -36,13 +36,15 @@ var mixedLinks = {};
 var brokenLinks = {};
 var hidingLeaves = {};
 var chartSelected = "statuses"
+var selectedTitles = []
+var selectedDisplay = null
 
 var graphSVG = d3.select('div#graph-container')
 	.append('svg')
 	.attr("id", "graph-svg")
 	.attr("width", graphWidth)
 	.attr("height", graphHeight)
-	.style('background-color', 'white')
+	.style('background-color', 'black')
 	
 var deleteGroups = function() {
 	d3.select("g#edges")
@@ -72,25 +74,39 @@ streamsXHR = new XMLHttpRequest();
 streamsXHR.onreadystatechange = function() {
 	if (streamsXHR.readyState === 4) {
 		streams = JSON.parse(streamsXHR.responseText);
-		hostsXHR = new XMLHttpRequest();
-		hostsXHR.onreadystatechange = function() {
-			if (hostsXHR.readyState === 4) {
-				createButtons()
-				hosts = JSON.parse(hostsXHR.responseText);
-				prepareLeaves()
-				prepareRoots()
-				streams = quickSort(streams)
-				createGraph()
-				createStreamStatusBarChart("total", "total")
-				createDropdownSelection()
+		titlesXHR = new XMLHttpRequest();
+		titlesXHR.onreadystatechange = function() {
+			if (titlesXHR.readyState === 4) {
+				titles = JSON.parse(titlesXHR.responseText)
+				createCompleteTitles()
+				hostsXHR = new XMLHttpRequest();
+				hostsXHR.onreadystatechange = function() {
+					if (hostsXHR.readyState === 4) {
+						createPage()
+					}
+				}
+				hostsXHR.open('GET', 'http://127.0.0.1:3000/hosts.json');
+				hostsXHR.send();
 			}
 		}
-		hostsXHR.open('GET', 'http://127.0.0.1:3000/hosts.json');
-		hostsXHR.send();
+		titlesXHR.open('GET', 'http://127.0.0.1:3000/titles.json');
+		titlesXHR.send();
 	}
 }
 streamsXHR.open('GET', 'http://127.0.0.1:3000/streams.json');
 streamsXHR.send();
+
+var createPage = function() {
+	createButtons()
+	hosts = JSON.parse(hostsXHR.responseText);
+	prepareLeaves()
+	prepareRoots()
+	streams = quickSort(streams)
+	createGraph()
+	createStreamStatusBarChart("total", "total")
+	createLeavesDropdownSelection()
+	createTitlesDropdownSelection()
+}
 
 
 var quickSort = function(list) {
@@ -112,6 +128,14 @@ var quickSort = function(list) {
 		}
 	}
 	return quickSort(G).concat(E).concat(quickSort(L)) 
+}
+
+var createCompleteTitles = function() {
+	completeTitles = []
+	for (var i=0; i < titles.length; i++) {
+		completeTitles.push(titles[i].title)
+	}
+	return completeTitles
 }
 
 var createGraph = function() {
@@ -188,17 +212,17 @@ var createBarChart = function(data, title) {
 }
 
 var createStartSitesBarChart = function () {
-	hostNamesData = []
+	startSitesData = []
 	for (var i=0; i < hosts.length; i++) {
 		data = {"state": i+1, "size": 0, "color": chartColors[i]}
-		hostNamesData.push(data)
+		startSitesData.push(data)
 	}
 	if (selectedRoot == null) {
 		title = "Total distribution of start sites"
 		for (var i=0; i < streams.length; i++) {
 			leafData = streams[i]
 			hostNamesLength = leafData.linked_by.length
-			hostNamesData[hostNamesLength-1].size += 1
+			startSitesData[hostNamesLength-1].size += 1
 		}		
 	} else {
 		id = selectedRoot.id
@@ -210,17 +234,10 @@ var createStartSitesBarChart = function () {
 			leaf = document.getElementById(leafID)
 			leafData = d3.select(leaf).datum()
 			hostNamesLength = leafData.linked_by.length
-			hostNamesData[hostNamesLength-1].size += 1
+			startSitesData[hostNamesLength-1].size += 1
 		}
 	}
-	for (var i=0; i < hostNamesData.length; i++) {
-		entry = hostNamesData[i]
-		if (entry.size === 0) {
-			hostNamesData.splice(hostNamesData.indexOf(entry), 1)
-		}
-	}
-	console.log(hostNamesData)
-	createBarChart(hostNamesData, title)
+	createBarChart(startSitesData, title)
 	chartSelected = "sites"
 }
 
@@ -250,9 +267,73 @@ var createStreamStatusBarChart = function() {
 	chartSelected = "statuses"
 }
 
+var createHostNamesBarChart = function () {
+	hostNamesData = [
+	{"state": 1}, {"state": 2}, {"state": 3}, {"state": "4-5"}, {"state": "5-6"}, {"state": "7-9"}, {"state": "10-12"},
+	{"state": "13-15"}, {"state": "16-20"}, {"state": "21-25"}, {"state": "26-30"}, {"state": "31+"}]
+	for (var i=0; i < hostNamesData.length; i++) {
+		hostNamesData[i].size = 0
+		hostNamesData[i].color = chartColors[i]
+	}
+	
+	if (selectedRoot === null) {
+		id = "total"
+		title = "Total distribution of host names"
+		leaves = streams
+	} else {
+		id = selectedRoot.id
+		title = "Distribution of host names from " + id
+		leaves = []
+		selectedRootData = d3.select(selectedRoot).datum()
+		children = selectedRootData.children
+		for (var i=0; i < children.length; i++) {
+			leafID = children[i]
+			leaf = document.getElementById(leafID)
+			leafData = d3.select(leaf).datum()
+			leaves.push(leafData)
+		}
+	}
+	for (var i=0; i < leaves.length; i++) {
+		leafData = leaves[i]
+		hostNamesLength = leafData.network_locations.length
+		if (hostNamesLength === 1) {
+			hostNamesData[0].size += 1
+		} else if (hostNamesLength === 2) {
+			hostNamesData[1].size += 1
+		} else if (hostNamesLength === 3) {
+			hostNamesData[2].size += 1
+		} else if (3 < hostNamesLength  && hostNamesLength < 5) {
+			hostNamesData[3].size += 1
+		} else if (5 <= hostNamesLength && hostNamesLength < 7) {
+			hostNamesData[4].size += 1
+		} else if (7 <= hostNamesLength && hostNamesLength < 9) {
+			hostNamesData[5].size += 1
+		} else if (10 <= hostNamesLength && hostNamesLength < 13) {
+			hostNamesData[6].size += 1
+		} else if (13 <= hostNamesLength && hostNamesLength < 16) {
+			hostNamesData[7].size += 1
+		} else if (16 <= hostNamesLength && hostNamesLength < 21) {
+			hostNamesData[8].size += 1
+		} else if (21 <= hostNamesLength && hostNamesLength < 26) {
+			hostNamesData[9].size += 1
+		} else if (26 <= hostNamesLength && hostNamesLength < 31) {
+			hostNamesData[10].size += 1 
+		} else {
+			hostNamesData[11].size += 1
+		}
+	}
+	createBarChart(hostNamesData, title)
+	chartSelected = "hosts"
+}
+
 var createButtons = function() {
 	graphButtonData = [
-		{"buttonText": "Leaves displayed", "onPress": toggleDropdown, "id": "button-dropdown", "class": "dropbtn"},
+		{"buttonText": "Leaves displayed", "onPress": function(){
+			toggleDropdown("leaves-dropdown")
+		}, "id": "button-leaves-dropdown", "class": "dropbtn"},
+		{"buttonText": "Titles displayed", "onPress": function(){
+			toggleDropdown("titles-dropdown")
+		}, "id": "button-titles-dropdown", "class": "dropbtn"},
 		{"buttonText": "Hide broken streams", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-broken", "class": "graph-button"},
 		{"buttonText": "Hide mixed streams", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-mixed", "class": "graph-button"},
 		{"buttonText": "Previous most important", "onPress": function() {
@@ -280,13 +361,15 @@ var createButtons = function() {
 		.attr("id", function(d){return d.id})
 		.attr("class", function(d){return d.class})
 		.on("click", function(d){d.onPress();});
-	d3.select("div#myDropdown")
+	d3.select("div#leaves-dropdown")
+		.raise()
+	d3.select("div#titles-dropdown")
 		.raise()
 		
 	chartButtonData = [
-		{"buttonText": "Stream statuses distribution", "onPress": createStreamStatusBarChart, "id": "button-hide-broken", "class": "chart-button"},
-		{"buttonText": "Host names distribution", "onPress": createStartSitesBarChart, "id": "button-hide-mixed", "class": "chart-button"},
-		{"buttonText": "Start sites distribution", "onPress": function() {toggleHidingStatus(this);}, "id": "button-hide-mixed", "class": "chart-button"},
+		{"buttonText": "Stream statuses distribution", "onPress": createStreamStatusBarChart, "id": "chart-stream-status", "class": "chart-button"},
+		{"buttonText": "Start sites distribution", "onPress": createStartSitesBarChart, "id": "chart-start-sites", "class": "chart-button"},
+		{"buttonText": "Host names distribution", "onPress": createHostNamesBarChart, "id": "chart-host-names", "class": "chart-button"},
 	]
 	d3.select("div#chart-buttons")
 		.selectAll("buttons")
@@ -303,20 +386,37 @@ var createButtons = function() {
 var selectMostImportantLeaf = function() {
 	index = 0
 	while(true) {
-		console.log("LOOPING MAX")
-		doc = streams[index]
-		if ((doc.stream_status === "Broken" && brokenHidden === true) || (doc.stream_status === "Mixed" && mixedHidden === true)) {
+		leafData = streams[index]
+		if ((leafData.stream_status === "Broken" && brokenHidden === true) || (leafData.stream_status === "Mixed" && mixedHidden === true)) {
 			index += 1
 			continue;
 		}
-		leaf = document.getElementById(doc.id)
-		selectLeaf(leaf)
-		break;
+		leaf = document.getElementById(leafData.id)
+		if (selectedTitles.length > 0) {
+			show = false
+			for (var i=0; i < selectedTitles.length; i++) {
+				title = selectedTitles[i]
+				if (leafData.titles.indexOf(title) !== -1) {
+					show = true
+					break;
+				}
+			}
+			if (show === true) {
+				selectLeaf(leaf)
+				break;
+			} else {
+				index += 1
+			}
+		} else {
+			selectLeaf(leaf)
+			break;
+		}
 	}
 }
 
 var selectLeafByIndex = function(dir) {
 	while(true) {
+		console.log("Looping")
 		leafData = streams[currentSelectedIndex]
 		if ((leafData.stream_status === "Broken" && brokenHidden === true) || (leafData.stream_status === "Mixed" && mixedHidden === true)) {
 			currentSelectedIndex += dir
@@ -324,6 +424,22 @@ var selectLeafByIndex = function(dir) {
 				break;
 			}
 			continue;
+		} if (selectedTitles.length > 0) {
+			show = false
+			for (var i=0; i < selectedTitles.length; i++) {
+				title = selectedTitles[i]
+				if (leafData.titles.indexOf(title) !== -1) {
+					show = true
+					break;
+				}
+			}
+			if (show !== true) {
+				currentSelectedIndex += dir
+				if ((dir === -1 && currentSelectedIndex === 0) || (dir === 1 && currentSelectedIndex === streams.length)) {
+					break;
+				}
+				continue;
+			}
 		}
 		leaf = document.getElementById(leafData.id)
 		if (hidingLeaves[leafData.id] === true) {
@@ -338,9 +454,77 @@ var selectLeafByIndex = function(dir) {
 	}
 }
 
-var createDropdownSelection = function() {
+var createTitlesDropdownSelection = function() {
+	dropdownData = []
+	for (var i=0; i < titles.length; i++) {
+		dropdownData.push(titles[i].title)
+	}
+	dropdownData.sort(function(a, b){
+		var nameA = a.toLowerCase(), nameB = b.toLowerCase() 
+    if(nameA < nameB) return -1;
+    if(nameA > nameB) return 1;
+    return 0;
+	})
+	dropdownData.unshift("Select all", "Clear all")
+	d3.select("div#titles-dropdown")
+		.selectAll("p")
+		.data(dropdownData)
+		.enter()
+		.append("p")
+		.attr("id", function(d){return d})
+		.text(function(d){return d})
+		.on("click", function(d){selectTitleDropdown(this)})
+		.on("mouseover", function(d) {
+			d3.select(this)
+				.style("cursor", "pointer")
+			if (selectedTitles.indexOf(d) === -1) {
+				d3.select(this)
+					.style("background-color",  "#ddd")
+			}
+		})
+		.on("mouseout", function(d) {
+			if (selectedTitles.indexOf(d) === -1) {
+				d3.select(this)
+					.style("background-color",  "#f1f1f1")
+			}
+		})
+}
+
+var selectTitleDropdown = function(title) {
+	titleData = d3.select(title).datum()
+	index = selectedTitles.indexOf(titleData)
+	if (titleData === "Clear all") {
+		console.log("clearing")
+		selectedTitles = []
+		d3.select("div#titles-dropdown")
+			.selectAll("p")
+				.style("background-color",  "#f1f1f1")
+	} else if (titleData === "Select all") {
+		selectedTitles = createCompleteTitles()
+		d3.select("div#titles-dropdown")
+			.selectAll("p")
+				.style("background-color",  function(d) {
+					if (d !== "Clear all") {
+						return "#888888"
+					} else {
+						return "#f1f1f1"
+					}
+				})
+	} else if (index === -1) {
+		selectedTitles.push(titleData)
+		d3.select(title)
+			.style("background-color", "#888888")
+	} else {
+		selectedTitles.splice(index, 1)
+		d3.select(title)
+			.style("background-color",  "#f1f1f1")
+	}
+}
+
+
+var createLeavesDropdownSelection = function() {
 	sizeOfStreams = streams.length
-	dropdownLimits = [25, 50, 100, 200, 300, 400, 500, 750, 1000, 1500, 2000]
+	dropdownLimits = [25, 50, 100, 200, 300, 400, 500, 750, 1000, 1500, 2000, 2500, 3000]
 	dropdownData = []
 	for (var i=0; i < dropdownLimits.length; i++) {
 		limit = dropdownLimits[i]
@@ -350,28 +534,44 @@ var createDropdownSelection = function() {
 		}
 	}
 	dropdownData.push({"value": sizeOfStreams, "dropdownText": "Display all", "id": "Display all"})
-	d3.select("div#myDropdown")
+	d3.select("div#leaves-dropdown")
 		.selectAll("p")
 		.data(dropdownData)
 		.enter()
 		.append("p")
 		.attr("id", limit)
 		.text(function(d){return d.dropdownText})
-		.on("click", function(){selectDropdown(this)})
+		.on("click", function(){selectDisplayDropdown(this)})
+		.on("mouseover", function(d) {
+			d3.select(this)
+				.style("cursor", "pointer")
+			if (selectedDisplay !== this) {
+				d3.select(this)
+					.style("background-color",  "#ddd")
+			}
+		})
+		.on("mouseout", function(d) {
+			if (selectedDisplay !== this) {
+				d3.select(this)
+					.style("background-color",  "#f1f1f1")
+			}
+		})
+		
 }
 
-var selectDropdown = function(paragraph) {
-	if (selectedDropdown !== null) {
-		d3.select(selectedDropdown)
+var selectDisplayDropdown = function(display) {
+	if (selectedDisplay !== null) {
+		d3.select(selectedDisplay)
 			.style("background-color", "#f1f1f1")
 	} 
-	selectedDropdown = paragraph
-	d3.select(selectedDropdown)
+	selectedDisplay = display
+	d3.select(selectedDisplay)
 		.style("background-color", "#888888")
-	selectedData = d3.select(selectedDropdown).datum()
-	streamsDisplayed = selectedData.value
+	displayData = d3.select(selectedDisplay).datum()
+	streamsDisplayed = displayData.value
 	alterStreamsDisplayed()
 }
+
 
 var prepareLeaves = function() {
 	var maxImportance = Number.NEGATIVE_INFINITY
@@ -470,7 +670,7 @@ var prepareRoots = function() {
 		doc1.radius = rootRadius
 		doc1.opacity = 1
 		doc1.id = doc1.host
-		doc1.color = "#f48342"
+		doc1.color = "#ffffff"
 		doc1.children = []
 		doc1.state = "root"
 		doc1.s = null
@@ -536,7 +736,9 @@ var toggleHidingStatus = function(clickedData) {
 	if (clickedData.id === "button-hide-broken") {
 		if (brokenHidden === false) {
 			brokenHidden = true
+			console.log("replacing text")
 			clickedData.buttonText = clickedData.buttonText.replace("Hide", "Show")
+			console.log(clickedData.buttonText)
 		} else {
 			brokenHidden = false
 			clickedData.buttonText = clickedData.buttonText.replace("Show", "Hide")
@@ -551,6 +753,7 @@ var toggleHidingStatus = function(clickedData) {
 		}
 	}
 	clicked = document.getElementById(clickedData.id)
+	console.log(clicked)
 	d3.select(clicked)
 		.text(function(d) {return d.buttonText;})
 	alterStreamsDisplayed()
@@ -560,13 +763,30 @@ var toggleHidingStatus = function(clickedData) {
 var alterStreamsDisplayed = function() {
 	streamsAdded = 0
 	for (i=0, iLen = streams.length; i < iLen; i++) {
-		doc = streams[i]
-		leaf = document.getElementById(doc.id)
-		if (streamsAdded > streamsDisplayed || (doc.stream_status === "Broken" && brokenHidden === true) || (doc.stream_status === "Mixed" && mixedHidden === true)) {
+		leafData = streams[i]
+		leaf = document.getElementById(leafData.id)
+		if (streamsAdded > streamsDisplayed || (leafData.stream_status === "Broken" && brokenHidden === true) || (leafData.stream_status === "Mixed" && mixedHidden === true)) {
 			toggleLeaf(leaf, "none")
 		} else {
-			streamsAdded += 1
-			toggleLeaf(leaf, "block")
+			if (selectedTitles.length > 0) {
+				show = false
+				for (var j=0; j < selectedTitles.length; j++) {
+					title = selectedTitles[j]
+					if (leafData.titles.indexOf(title) !== -1) {
+						show = true
+						break;
+					}
+				}
+				if (show === true) {
+					streamsAdded += 1
+					toggleLeaf(leaf, "block")		
+				} else {
+					toggleLeaf(leaf, "none")
+				}
+			} else {
+				streamsAdded += 1
+				toggleLeaf(leaf, "block")				
+			}
 		}
 	}
 }
@@ -613,7 +833,6 @@ var selectRoot = function(root) {
 		deselectRoot(selectedRoot, false)
 	}
 	selectedRoot = root
-	console.log(root)
 	d3.select(root)
 		.raise()
 		.transition()
@@ -625,6 +844,8 @@ var selectRoot = function(root) {
 		createStreamStatusBarChart()
 	} else if (chartSelected === "sites") {
 		createStartSitesBarChart()
+	} else if (chartSelected === "hosts") {
+		createHostNamesBarChart()
 	}
 }
 
@@ -637,7 +858,13 @@ var deselectRoot = function(root, completeDeselect) {
 		.attr("stroke", null)
 		.attr("stroke-width", null)
 	if (completeDeselect === true) {
-		createStreamStatusBarChart("total")
+		if (chartSelected === "statuses") {
+		createStreamStatusBarChart()
+	} else if (chartSelected === "sites") {
+		createStartSitesBarChart()
+	} else if (chartSelected === "hosts") {
+		createHostNamesBarChart()
+	}
 	}
 }
 
@@ -706,7 +933,7 @@ var boldEdges = function(leaf) {
 		d3.select(edge).raise()
 		d3.select(edge)
 			.transition()
-			.attr("stroke", "black")
+			.attr("stroke", "#ffffff")
 			.attr("stroke-width", "1.5px")
 			.attr("x1", graphWidth/2)
 			.attr("y1", graphHeight/2)
@@ -833,22 +1060,23 @@ var clearTextArea = function() {
 
 /* When the user clicks on the button, 
 toggle between hiding and showing the dropdown content */
-function toggleDropdown() {
-    document.getElementById("myDropdown").classList.toggle("show");
+function toggleDropdown(id) {
+   document.getElementById(id).classList.toggle("show");
 }
 
 // Close the dropdown menu if the user clicks outside of it
 window.onclick = function(event) {
-  if (!event.target.matches('.dropbtn')) {
-
-    var dropdowns = document.getElementsByClassName("dropdown-content");
-    var i;
-    for (i = 0; i < dropdowns.length; i++) {
-      var openDropdown = dropdowns[i];
-      if (openDropdown.classList.contains('show')) {
-        openDropdown.classList.remove('show');
-      }
+  if (!document.getElementById("button-leaves-dropdown").contains(event.target)) {
+    var dropdown = document.getElementById("leaves-dropdown");
+    if (dropdown.classList.contains('show')) {
+      dropdown.classList.remove('show');
     }
-  }
+  } if (!document.getElementById("button-titles-dropdown").contains(event.target) && 
+		!document.getElementById("titles-dropdown").contains(event.target)) {
+		var dropdown = document.getElementById("titles-dropdown");
+    if (dropdown.classList.contains('show')) {
+      dropdown.classList.remove('show');
+			alterStreamsDisplayed()
+    }
+	}
 }
-

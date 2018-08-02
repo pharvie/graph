@@ -9,6 +9,11 @@ svg {
 	display: block;
 }
 
+body {
+	background-color: black;
+}
+
+
 .grid {
 	display: grid;
 	grid-template-columns: 1fr 1250 400 1fr;
@@ -108,11 +113,11 @@ button {
 }
 
 .graph-button {
-    padding: 16.5px 16.5px;
+    padding: 10px 10px;
     text-decoration: none;
     display: inline-block;
     font-size: 12px;
-		margin: 15px;
+		margin: 10px;
 }
 
 button:hover {
@@ -123,11 +128,11 @@ button:hover {
 /* Dropdown Button */
 .dropbtn {
     text-align: center;
-    padding: 16.5px 16.5px;
+    padding: 10px 10px;
     text-decoration: none;
     display: inline-block;
     font-size: 12px;
-		margin: 15px;
+		margin: 10px;
 }
 
 /* Dropdown button on hover & focus */
@@ -142,35 +147,57 @@ button:hover {
 }
 
 /* Dropdown Content (Hidden by Default) */
-.dropdown-content {
+.leaves-dropdown-content {
     display: none;
 		padding: 10px;
     position: absolute;
+		height: 400px;
+		max-height: 400px;
     background-color: #f1f1f1;
 		font-size: 12px;
 		font-family: "Verdana";
     min-width: 160px;
     z-index: 1;
+		overflow: auto;
 }
 
 /* Links inside the dropdown */
-.dropdown-content p {
+.leaves-dropdown-content p {
     color: black;
     padding: 12px 16px;
     text-decoration: none;
     display: block;
 }
 
-/* Change color of dropdown links on hover */
-.dropdown-content p:hover {
-	background-color: #ddd;
-	cursor: pointer;
+.titles-dropdown-content {
+    display: none;
+		transform: translate(140px);
+		padding: 10px;
+    position: absolute;
+		height: 400px;
+		max-height: 400px;
+    background-color: #f1f1f1;
+		font-size: 12px;
+		font-family: "Verdana";
+    min-width: 160px;
+    z-index: 1;
+		overflow: auto;
 }
 
+/* Links inside the dropdown */
+.titles-dropdown-content p {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+
 /* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
-.show {display:block;}
+.show {
+	display:block;
+}
 
 .bar {
 	display:inline-block;
-	
 }

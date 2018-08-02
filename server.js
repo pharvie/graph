@@ -6,8 +6,7 @@ var startServer = function(responseContent) {
 		console.log(req.url)
 		handleUrl(req, res)
 	});
-	server.listen(3000, '18.207.154.217')
-	console.log('Listening on port 3000')
+	server.listen('54.89.39.38')
 }
 
 var handleUrl = function(req, res) {
@@ -20,7 +19,10 @@ var handleUrl = function(req, res) {
 	} else if (req.url === '/hosts.json') {
 		res.writeHead(200, {'Content-Type': 'application/json'});
 		var myReadStream = fs.createReadStream(__dirname + '/hosts.json', 'utf-8');
-	} else if (req.url === '/d3.min.js') {
+	} else if (req.url === '/titles.json') {
+		res.writeHead(200, {'Content-Type': 'application/json'});
+		var myReadStream = fs.createReadStream(__dirname + '/titles.json', 'utf-8');
+	}else if (req.url === '/d3.min.js') {
 		res.writeHead(200, {'Content-Type': 'text/javascript'})
 		var myReadStream = fs.createReadStream(__dirname + '/d3.min.js', 'utf-8');
 	} else if (req.url === '/graph.js') {
