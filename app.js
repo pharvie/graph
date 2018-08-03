@@ -4,7 +4,6 @@ The date of the collection from the database accessed can be changed in this fil
 **********************************************------------*********************************************************************/
 
 
-var server = require('./server');
 var database = require('./database')
 var dateObj = new Date();
 var lookback = 0 // change the value of this number to change how many days the program looks back to find the collection of streams
