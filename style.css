@@ -16,7 +16,7 @@ body {
 
 .grid {
 	display: grid;
-	grid-template-columns: 1fr 1250 400 1fr;
+	grid-template-columns: 1fr 1000 400 1fr;
 	grid-template-rows: 1fr 250 750 1fr;
 	grid-template-areas:
 	". test info ."
@@ -36,23 +36,23 @@ body {
 	max-height: 700px;
 	display: inline-block;
 	overflow: hidden;
-	background-color: steelblue;
+	background-color: #696969;
 	font-size: 16px;
 	color: white;
 	font-family: "Verdana";
 	margin: 40px;
 	box-shadow:
-    0 0 0 10px hsl(207, 44%, 49%),
-    0 0 0 15px hsl(209, 20%, 49%);
+    0 0 0 10px #696969,
+    0 0 0 15px #606060;
 }
 
 .text-info {
 	position: relative;
 	width: 400px;
 	max-width: 400px;
-	height: 350px;
-	max-height: 350px;
-	background-color: steelblue;
+	height: 270px;
+	max-height: 270px;
+	background-color: #696969;
 	font-size: 16px;
 	color: white;
 	font-family: "Verdana";
@@ -61,9 +61,9 @@ body {
 .chart-container {
 	width: 400px;
 	max-width: 400px;
-	height: 320px;
-	max-height: 320px;
-	background-color: steelblue;
+	height: 400px;
+	max-height: 400px;
+	background-color: #696969;
 }
 
 .chart-button-container {
@@ -72,30 +72,31 @@ body {
 	max-width: 400px;
 	height: 30px;
 	max-height: 30px;
-	background-color: steelblue;
+	background-color: #696969;
 }
 
 .chart-button {
-	padding: 4px 4px;
+	padding: 5px 6.33px;
     text-decoration: none;
     display: inline-block;
-    font-size: 9.5px;
+    font-size: 10.5px;
 		margin: 3px;
 }
 
 .buttons {
 	grid-area: test;
-	background-color: steelblue;
+	background-color: #696969;
 	margin: 40px;
 	width: 1150px ; /* or whatever width you want. */
   max-width: 1150px; /* or whatever width you want. */
 	box-shadow:
-    0 0 0 10px hsl(207, 44%, 49%),
-    0 0 0 15px hsl(209, 20%, 49%);
+    0 0 0 10px #696969,
+    0 0 0 15px #606060;
 }
 
 body { 
 	-webkit-font-smoothing: antialiased; 
+	background-color: #202020;
 }
 
 

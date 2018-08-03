@@ -1,7 +1,15 @@
+/**********************************************-----------*********************************************************************
+Trying to add a configuration file to this document? Look no further than this.
+The IP addresses of the server are located on lines 82-105, look there to find comments on where to change urls
+**********************************************------------*********************************************************************/
+
+
+
+
 //constants
 const graphHeight = 600;
 const graphWidth = 1140;
-const chartHeight = 320;
+const chartHeight = 400;
 const chartWidth = 400;
 const infoHeight = 600;
 const infoWidth = 400;
@@ -44,7 +52,7 @@ var graphSVG = d3.select('div#graph-container')
 	.attr("id", "graph-svg")
 	.attr("width", graphWidth)
 	.attr("height", graphHeight)
-	.style('background-color', 'black')
+	.style('background-color', '#202020')
 	
 var deleteGroups = function() {
 	d3.select("g#edges")
@@ -85,15 +93,15 @@ streamsXHR.onreadystatechange = function() {
 						createPage()
 					}
 				}
-				hostsXHR.open('GET', 'http://127.0.0.1:3000/hosts.json');
+				hostsXHR.open('GET', 'http://127.0.0.1:3000/hosts.json'); // if the IP address of the server changes, this should change
 				hostsXHR.send();
 			}
 		}
-		titlesXHR.open('GET', 'http://127.0.0.1:3000/titles.json');
+		titlesXHR.open('GET', 'http://127.0.0.1:3000/titles.json'); // if the IP address of the server changes, this should change
 		titlesXHR.send();
 	}
 }
-streamsXHR.open('GET', 'http://127.0.0.1:3000/streams.json');
+streamsXHR.open('GET', 'http://127.0.0.1:3000/streams.json'); // if the IP address of the server changes, this should change
 streamsXHR.send();
 
 var createPage = function() {
@@ -101,7 +109,7 @@ var createPage = function() {
 	hosts = JSON.parse(hostsXHR.responseText);
 	prepareLeaves()
 	prepareRoots()
-	streams = quickSort(streams)
+	streams = quickSort(streams, "importance")
 	createGraph()
 	createStreamStatusBarChart("total", "total")
 	createLeavesDropdownSelection()
@@ -109,25 +117,25 @@ var createPage = function() {
 }
 
 
-var quickSort = function(list) {
+var quickSort = function(list, keyword) {
 	if (list.length <= 1) {
 		return list
 	} 
 	var rand = Math.floor(Math.random() * list.length)
-	pivot = list[rand].importance
+	pivot = list[rand][keyword]
 	var L = []
 	var E = []
 	var G = []
 	for (var i=0; i < list.length; i++) {
-		if (list[i].importance < pivot) {
+		if (list[i][keyword] < pivot) {
 			L.push(list[i])
-		} else if (list[i].importance > pivot) {
+		} else if (list[i][keyword] > pivot) {
 			G.push(list[i])
 		} else {
 			E.push(list[i])
 		}
 	}
-	return quickSort(G).concat(E).concat(quickSort(L)) 
+	return quickSort(G, keyword).concat(E).concat(quickSort(L, keyword)) 
 }
 
 var createCompleteTitles = function() {
@@ -160,7 +168,7 @@ var createBarChart = function(data, title) {
 	.style('background-color', 'white')
 	
 	d3.select(chartSVG),
-    margin = {top: 50, right: 20, bottom: 30, left: 40},
+    margin = {top: 50, right: 20, bottom: 100, left: 40},
 		width =+ chartSVG.attr("width") - margin.left - margin.right,
     height =+ chartSVG.attr("height") - margin.top - margin.bottom;
 	
@@ -175,10 +183,15 @@ var createBarChart = function(data, title) {
 	var g = chartSVG.append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 	
-	g.append("g")
+	xAxisGroup = g.append("g")
 		.attr("class", "axis axis--x")
 		.attr("transform", "translate(0," + height + ")")
 		.call(d3.axisBottom(x));
+		
+	xAxisGroup.selectAll("text")
+		.attr("transform", "rotate(-50, 0, 10)")
+		.style("font-family", "Arial")
+		.style("text-anchor", "end")
 		
 	g.append("g")
 			.attr("class", "axis axis--y")
@@ -188,8 +201,7 @@ var createBarChart = function(data, title) {
 			.attr("y", 6)
 			.attr("dy", "0.71em")
 			.attr("text-anchor", "end")
-			.text("Frequency");
-			
+		
 	g.selectAll("rect")
     .data(data)
     .enter()
@@ -241,6 +253,56 @@ var createStartSitesBarChart = function () {
 	chartSelected = "sites"
 }
 
+var createTitlesBarChart = function () {
+	var titlesFound = {}
+	var titlesData = []
+	var parsed = []
+	const titlesDisplayed = 30
+	if (selectedRoot == null) {
+		chartTitle = "Total distribution of titles"
+		parsed = streams		
+	} else {
+		id = selectedRoot.id
+		chartTitle = "Distribution of titles from " + id
+		selectedRootData = d3.select(selectedRoot).datum()
+		children = selectedRootData.children
+		for (var i=0; i < children.length; i++) {
+			leafID = children[i]
+			leaf = document.getElementById(leafID)
+			leafData = d3.select(leaf).datum()
+			parsed.push(leafData)
+		}
+	}
+	for (var i=0; i < parsed.length; i++) {
+		leafData = parsed[i]
+		titles = leafData.titles
+		for (var j=0; j < titles.length; j++) {
+			title = titles[j]
+			if (titlesFound[title] == null) {
+				titlesFound[title] = 1
+			} else {
+				titlesFound[title] += 1
+			}
+		}
+	}
+	for (var title in titlesFound) {
+		size = titlesFound[title]
+		data = {"state": title, "size": size}
+		titlesData.push(data)
+	}
+	var titlesAdded = 0
+	var tempTitlesData = []
+	while(titlesAdded < titlesData.length && titlesAdded < titlesDisplayed) {
+		titlesData[titlesAdded].color = chartColors[titlesAdded]
+		tempTitlesData.push(titlesData[titlesAdded])
+		titlesAdded += 1
+	}
+	console.log(tempTitlesData)
+	titlesData = tempTitlesData
+	createBarChart(titlesData, chartTitle)
+	chartSelected = "titles"
+}
+
 
 var createStreamStatusBarChart = function() {
 	if (selectedRoot === null) {
@@ -251,11 +313,11 @@ var createStreamStatusBarChart = function() {
 		title = "Distribution of streams from " + id
 	}
 	if (brokenLinks[id] !== null || workingLinks[id] !== null || mixedLinks[id] !== null) {
-		if (brokenLinks[id] === null) {
+		if (brokenLinks[id] == null) {
 			brokenLinks[id] = 0
-		} if (workingLinks[id] === null) {
+		} if (workingLinks[id] == null) {
 			workingLinks[id] = 0
-		} if (mixedLinks[id] === null) {
+		} if (mixedLinks[id] == null) {
 			mixedLinks[id] = 0
 		}
 		
@@ -367,9 +429,10 @@ var createButtons = function() {
 		.raise()
 		
 	chartButtonData = [
-		{"buttonText": "Stream statuses distribution", "onPress": createStreamStatusBarChart, "id": "chart-stream-status", "class": "chart-button"},
-		{"buttonText": "Start sites distribution", "onPress": createStartSitesBarChart, "id": "chart-start-sites", "class": "chart-button"},
-		{"buttonText": "Host names distribution", "onPress": createHostNamesBarChart, "id": "chart-host-names", "class": "chart-button"},
+		{"buttonText": "Stream statuses info", "onPress": createStreamStatusBarChart, "id": "chart-stream-status", "class": "chart-button"},
+		{"buttonText": "Start sites info", "onPress": createStartSitesBarChart, "id": "chart-start-sites", "class": "chart-button"},
+		{"buttonText": "Host names info", "onPress": createHostNamesBarChart, "id": "chart-host-names", "class": "chart-button"},
+		{"buttonText": "Titles info", "onPress": createTitlesBarChart, "id": "chart-host-names", "class": "chart-button"},
 	]
 	d3.select("div#chart-buttons")
 		.selectAll("buttons")
@@ -661,7 +724,6 @@ var prepareLeaves = function() {
 		doc.sw = null
 	}
 	streamsDisplayed = streams.length
-	streams = streams
 }
 
 var prepareRoots = function() {
@@ -670,7 +732,7 @@ var prepareRoots = function() {
 		doc1.radius = rootRadius
 		doc1.opacity = 1
 		doc1.id = doc1.host
-		doc1.color = "#ffffff"
+		doc1.color = "orangered"
 		doc1.children = []
 		doc1.state = "root"
 		doc1.s = null
@@ -846,6 +908,8 @@ var selectRoot = function(root) {
 		createStartSitesBarChart()
 	} else if (chartSelected === "hosts") {
 		createHostNamesBarChart()
+	} else if (chartSelected === "titles") {
+		createTitlesBarChart()
 	}
 }
 
@@ -860,14 +924,16 @@ var deselectRoot = function(root, completeDeselect) {
 	if (completeDeselect === true) {
 		if (chartSelected === "statuses") {
 		createStreamStatusBarChart()
-	} else if (chartSelected === "sites") {
-		createStartSitesBarChart()
-	} else if (chartSelected === "hosts") {
-		createHostNamesBarChart()
-	}
+		} else if (chartSelected === "sites") {
+			createStartSitesBarChart()
+		} else if (chartSelected === "hosts") {
+			createHostNamesBarChart()
+		} else if (chartSelected === "titles") {
+			createTitlesBarChart()
+		}
 	}
 }
-
+	
 var selectLeaf = function(leaf) {
 	if (selectedLeaf !== null) {
 		deselectLeaf(selectedLeaf, 500)
@@ -933,7 +999,7 @@ var boldEdges = function(leaf) {
 		d3.select(edge).raise()
 		d3.select(edge)
 			.transition()
-			.attr("stroke", "#ffffff")
+			.attr("stroke", "black")
 			.attr("stroke-width", "1.5px")
 			.attr("x1", graphWidth/2)
 			.attr("y1", graphHeight/2)
@@ -978,8 +1044,9 @@ var alterTextArea = function(leaf) {
 	edges = tempEdges
 	addIP(leaf)
 	addListedInfo(edges, "Linked by:")
-	addListedInfo(leafData.network_locations, "Network locations:")
-	addListedInfo(leafData.titles, "Titles:")
+	addListedInfo(leafData.network_locations, "Host names:", false)
+	addListedInfo(leafData.titles, "Titles:", false)
+	addListedInfo(leafData.playable_urls, "Playable streams:", true)
 }
 
 var addIP = function(leaf) {
@@ -989,30 +1056,49 @@ var addIP = function(leaf) {
 		.text("IP address: " + leafData.ip_address)
 }
 
-var addListedInfo = function(list, string) {
-	maxShown = 3
-	d3.select("div#text-info")
-		.append("p")
-		.text(string)
-		.attr("id", string)
-	selectedText = document.getElementById(string)
-	for (var i = 0, len = list.length; i < len; i++) {
-		if (i === maxShown) {
-			d3.select(selectedText)
-				.append("li")
-				.text("Show more...")
-				.on("mouseover", function() {d3.select(this).style("cursor", "pointer");})
-				.on("click", function() {showIndex(list, string, 0)})
-				break;
-		} else {
-			d3.select(selectedText)
-				.append("li")
-				.text(list[i])
-		}	
+var addListedInfo = function(list, string, linked) {
+	maxShown = 2
+	if (linked === true) { 
+		console.log(list)
+	}
+	if (list.length > 0) {
+		d3.select("div#text-info")
+			.append("p")
+			.text(string)
+			.attr("id", string)
+		selectedText = document.getElementById(string)
+		for (var i = 0, len = list.length; i < len; i++) {
+			if (linked === true) {
+				url = list[i]
+			}
+			if (i === maxShown) {
+				d3.select(selectedText)
+					.append("li")
+					.text("Show more...")
+					.on("mouseover", function() {d3.select(this).style("cursor", "pointer");})
+					.on("click", function() {showIndex(list, string, 0, linked)})
+					break;
+			} else {
+				point = d3.select(selectedText)
+					.append("li")
+				if (linked === true) {
+					point.text("Link " + (i+1))
+						.style("color", "white")
+						.on("mouseover", function() {d3.select(this).style("cursor", "pointer");})
+						.on("click", function() {
+							d3.select(this)
+								.style("color", "black")
+							window.open(url)
+						})
+				} else {
+					point.text(list[i])
+				}
+			}	
+		}		
 	}
 }
 
-var showIndex = function(list, string, index) {
+var showIndex = function(list, string, index, linked) {
 	maxShown = 12
 	d3.select("div#text-info")
 		.selectAll("p")
@@ -1023,10 +1109,15 @@ var showIndex = function(list, string, index) {
 		.attr("id", string)
 	selectedText = document.getElementById(string)
 	for (var i = index, len = list.length; i < len && i < index + maxShown; i++) {
-		d3.select(selectedText)
-			.append("li")
-			.text(list[i])
-		if (i === (index + maxShown)-1 && i + maxShown < list.length) {
+		point = d3.select(selectedText)
+				.append("li")
+		if (linked === true) {
+			point.append("a")
+				.attr("href", list[i])
+				.text("Link " + (i+1))
+		} else {
+			point.text(list[i])
+		} if (i === (index + maxShown)-1 && i + maxShown < list.length) {
 			d3.select(selectedText)
 				.append("li")
 				.text("Show more")
